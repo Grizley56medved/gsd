@@ -1,7 +1,15 @@
 ﻿services:
   gsdownloader:
-    image: gsdownloader
     build:
       context: .
       dockerfile: GSDownloader/Dockerfile
-
+    image: gsdownloader:latest
+    container_name: gsdownloader
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    logging:
+      driver: "none"
