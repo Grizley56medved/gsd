@@ -83,13 +83,15 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
     // Большинство HTTP-клиентов распакуют его автоматически.
     context.Response.ContentType = "application/octet-stream";
     // context.Response.Headers.ContentEncoding = "br";
-
+    context.Response.Headers.ContentEncoding = "gzip"; // Меняем заголовок
+    
     using var ms = new MemoryStream();
 
     Stopwatch sw = Stopwatch.StartNew();
     // 2. Оборачиваем поток в BrotliStream
     // using (var brotliStream = new BrotliStream(ms, CompressionLevel.SmallestSize, leaveOpen: true))
-    using (var writer = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+    using (var gzipStream = new GZipStream(ms, CompressionLevel.Fastest, leaveOpen: true))
+    using (var writer = new BinaryWriter(gzipStream, System.Text.Encoding.UTF8, leaveOpen: true))
     {
         writer.Write(responses.Length);
 
