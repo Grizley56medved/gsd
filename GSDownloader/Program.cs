@@ -1,4 +1,5 @@
-﻿using System.IO.Compression;
+﻿using System.Diagnostics;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Runtime.InteropServices;
@@ -85,6 +86,7 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
 
     using var ms = new MemoryStream();
 
+    Stopwatch sw = Stopwatch.StartNew();
     // 2. Оборачиваем поток в BrotliStream
     using (var brotliStream = new BrotliStream(ms, CompressionLevel.SmallestSize, leaveOpen: true))
     using (var writer = new BinaryWriter(brotliStream, System.Text.Encoding.UTF8, leaveOpen: true))
@@ -165,8 +167,15 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
         }
     } // Здесь все буферы сжатия сбрасываются в ms
     
+    app.Logger.LogInformation("Compression takes {0}", sw.ElapsedMilliseconds);
+    
+    sw.Restart();
     ReadOnlyMemory<byte> buffer = ms.GetBuffer().AsMemory(0, (int)ms.Length);
+    app.Logger.LogInformation("Buffer takes {0}", sw.ElapsedMilliseconds);
+    
+    sw.Restart();
     await context.Response.Body.WriteAsync(buffer, context.RequestAborted);
+    app.Logger.LogInformation("Send takes {0}", sw.ElapsedMilliseconds);
 });
 
 app.Run();
