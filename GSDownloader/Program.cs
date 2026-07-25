@@ -82,14 +82,14 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
     // 1. Указываем заголовок о том, что тело ответа сжато алгоритмом Brotli.
     // Большинство HTTP-клиентов распакуют его автоматически.
     context.Response.ContentType = "application/octet-stream";
-    context.Response.Headers.ContentEncoding = "br";
+    // context.Response.Headers.ContentEncoding = "br";
 
     using var ms = new MemoryStream();
 
     Stopwatch sw = Stopwatch.StartNew();
     // 2. Оборачиваем поток в BrotliStream
-    using (var brotliStream = new BrotliStream(ms, CompressionLevel.SmallestSize, leaveOpen: true))
-    using (var writer = new BinaryWriter(brotliStream, System.Text.Encoding.UTF8, leaveOpen: true))
+    // using (var brotliStream = new BrotliStream(ms, CompressionLevel.SmallestSize, leaveOpen: true))
+    using (var writer = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
     {
         writer.Write(responses.Length);
 
