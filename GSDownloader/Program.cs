@@ -152,10 +152,10 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
                 writer.Write((ushort)applicant.StatusId);
 
                 // Пишем StatusName, только если флаг (бит 9) поднят
-                if (applicant.StatusName != null)
-                {
-                    writer.Write(applicant.StatusName);
-                }
+                // if (applicant.StatusName != null)
+                // {
+                //     writer.Write(applicant.StatusName);
+                // }
 
                 writer.Write(applicant.IdApplication);
             }
