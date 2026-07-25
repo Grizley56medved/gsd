@@ -50,26 +50,44 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
         await semaphore.WaitAsync(context.RequestAborted);
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"{_apiUniversity}/competition/{id}/applicants");
-            request.Headers.TryAddWithoutValidation("User-Agent", RandomUserAgent.RandomUa.RandomUserAgent);
-
-            var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
-            processedCount += 1;
-            if (processedCount % 100 == 0)
+            while (!context.RequestAborted.IsCancellationRequested)
             {
-                app.Logger.LogInformation("Processed {0} applicants", processedCount);
-            }
+                try
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Get, $"{_apiUniversity}/competition/{id}/applicants");
+                    request.Headers.TryAddWithoutValidation("User-Agent", RandomUserAgent.RandomUa.RandomUserAgent);
 
-            if (response.IsSuccessStatusCode)
-            {
-                responses[index] = (await response.Content.ReadFromJsonAsync(
-                    AppJsonSerializerContext.Default.ApplicantsResponse,
-                    context.RequestAborted), id);
+                    var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var data = await response.Content.ReadFromJsonAsync(
+                            AppJsonSerializerContext.Default.ApplicantsResponse,
+                            context.RequestAborted);
+
+                        responses[index] = (data, id);
+
+                        int count = Interlocked.Increment(ref processedCount);
+                        
+                        if (count % 100 == 0)
+                        {
+                            app.Logger.LogInformation("Processed {0} applicants", count);
+                        }
+
+                        break;
+                    }
+                }
+                catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    app.Logger.LogError("Unable to get entity {0}.\n{1}", id, ex.ToString());
+                }
+
+                await Task.Delay(200, context.RequestAborted);
             }
-        }
-        catch
-        {
-            // Игнорируем ошибки для сохранения стабильности
         }
         finally
         {
@@ -79,17 +97,11 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
 
     await Task.WhenAll(tasks);
     
-    // 1. Указываем заголовок о том, что тело ответа сжато алгоритмом Brotli.
-    // Большинство HTTP-клиентов распакуют его автоматически.
     context.Response.ContentType = "application/octet-stream";
-    // context.Response.Headers.ContentEncoding = "br";
-    context.Response.Headers.ContentEncoding = "gzip"; // Меняем заголовок
+    context.Response.Headers.ContentEncoding = "gzip";
     
     using var ms = new MemoryStream();
 
-    Stopwatch sw = Stopwatch.StartNew();
-    // 2. Оборачиваем поток в BrotliStream
-    // using (var brotliStream = new BrotliStream(ms, CompressionLevel.SmallestSize, leaveOpen: true))
     using (var gzipStream = new GZipStream(ms, CompressionLevel.Fastest, leaveOpen: true))
     using (var writer = new BinaryWriter(gzipStream, System.Text.Encoding.UTF8, leaveOpen: true))
     {
@@ -110,26 +122,19 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
                 var applicant = applicants!.Applicants![index];
                 
                 writer.Write(applicant.Rating);
-                
-                // ОПТИМИЗАЦИЯ: Пишем Priority как byte вместо int (экономия 3 байта)
                 writer.Write(applicant.Priority);
 
-                // ОПТИМИЗАЦИЯ: Упаковка всех флагов в 2 байта (ushort) вместо 8 байт
                 ushort flags = 0;
                 
-                // MainTopPriority (биты 0 и 1)
                 if (applicant.MainTopPriority == true) flags |= 1 << 0;
                 if (applicant.MainTopPriority == false) flags |= 1 << 1; 
                 
-                // HighestPassagewayPriority (биты 2 и 3)
                 if (applicant.HighestPassagewayPriority == true) flags |= 1 << 2;
                 if (applicant.HighestPassagewayPriority == false) flags |= 1 << 3;
 
-                // Булевы переменные (биты 4 и 5)
                 if (applicant.WithoutTests) flags |= 1 << 4;
                 if (applicant.PaidContract)  flags |= 1 << 5;
 
-                // Флаги наличия nullable-данных (биты 6, 7, 8, 9)
                 if (applicant.ConsentDate.HasValue)     flags |= 1 << 6;
                 if (applicant.AchievementsMark.HasValue) flags |= 1 << 7;
                 if (applicant.Consent != null)          flags |= 1 << 8;
@@ -137,13 +142,11 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
 
                 writer.Write(flags);
 
-                // Пишем строку Consent, только если флаг (бит 8) поднят
                 if (applicant.Consent != null)
                 {
-                    writer.Write(applicant.Consent); // BinaryWriter сам запишет длину строки
+                    writer.Write(applicant.Consent);
                 }
 
-                // ОПТИМИЗАЦИЯ: ConsentDate пишем как UnixTimeSeconds (4 байта вместо 8 байт)
                 if (applicant.ConsentDate.HasValue)
                 {
                     long unixSeconds = new DateTimeOffset(applicant.ConsentDate.Value).ToUnixTimeSeconds();
@@ -155,29 +158,14 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
                     writer.Write(applicant.AchievementsMark.Value);
                 }
 
-                // ОПТИМИЗАЦИЯ: StatusId пишем как ushort (2 байта вместо 4)
                 writer.Write((ushort)applicant.StatusId);
-
-                // Пишем StatusName, только если флаг (бит 9) поднят
-                // if (applicant.StatusName != null)
-                // {
-                //     writer.Write(applicant.StatusName);
-                // }
-
                 writer.Write(applicant.IdApplication);
             }
         }
-    } // Здесь все буферы сжатия сбрасываются в ms
+    }
     
-    app.Logger.LogInformation("Compression takes {0}", sw.ElapsedMilliseconds);
-    
-    sw.Restart();
     ReadOnlyMemory<byte> buffer = ms.GetBuffer().AsMemory(0, (int)ms.Length);
-    app.Logger.LogInformation("Buffer takes {0}", sw.ElapsedMilliseconds);
-    
-    sw.Restart();
     await context.Response.Body.WriteAsync(buffer, context.RequestAborted);
-    app.Logger.LogInformation("Send takes {0}", sw.ElapsedMilliseconds);
 });
 
 app.Run();
