@@ -5,6 +5,7 @@
       dockerfile: GSDownloader/Dockerfile
     image: gsdownloader:latest
     container_name: gsdownloader
+    restart: unless-stopped
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
     ports:
