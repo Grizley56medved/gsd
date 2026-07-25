@@ -1,0 +1,7 @@
+﻿services:
+  gsdownloader:
+    image: gsdownloader
+    build:
+      context: .
+      dockerfile: GSDownloader/Dockerfile
+
