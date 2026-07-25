@@ -86,7 +86,7 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
     using var ms = new MemoryStream();
 
     // 2. Оборачиваем поток в BrotliStream
-    using (var brotliStream = new BrotliStream(ms, CompressionLevel.NoCompression, leaveOpen: true))
+    using (var brotliStream = new BrotliStream(ms, CompressionLevel.SmallestSize, leaveOpen: true))
     using (var writer = new BinaryWriter(brotliStream, System.Text.Encoding.UTF8, leaveOpen: true))
     {
         writer.Write(responses.Length);
