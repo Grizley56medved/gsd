@@ -41,7 +41,7 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
 
     var httpClient = httpClientFactory.CreateClient("DownstreamClient");
     var responses = new (ApplicantsResponse?, int)[ids.Length];
-    using var semaphore = new SemaphoreSlim(50);
+    using var semaphore = new SemaphoreSlim(150);
     int processedCount = 0;
 
     var tasks = ids.Select(async (id, index) =>
@@ -54,7 +54,10 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
 
             var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
             processedCount += 1;
-            app.Logger.LogInformation("Processed {0} applicants", processedCount);
+            if (processedCount % 100 == 0)
+            {
+                app.Logger.LogInformation("Processed {0} applicants", processedCount);
+            }
 
             if (response.IsSuccessStatusCode)
             {
@@ -83,7 +86,7 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
     using var ms = new MemoryStream();
 
     // 2. Оборачиваем поток в BrotliStream
-    using (var brotliStream = new BrotliStream(ms, CompressionLevel.Fastest, leaveOpen: true))
+    using (var brotliStream = new BrotliStream(ms, CompressionLevel.NoCompression, leaveOpen: true))
     using (var writer = new BinaryWriter(brotliStream, System.Text.Encoding.UTF8, leaveOpen: true))
     {
         writer.Write(responses.Length);
