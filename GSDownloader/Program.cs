@@ -32,7 +32,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 var app = builder.Build();
 
-app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, HttpContext context) =>
+app.MapPost("/process", async (int[] ids, bool rating, IHttpClientFactory httpClientFactory, HttpContext context) =>
 {
     if (ids == null || ids.Length == 0)
     {
@@ -54,7 +54,8 @@ app.MapPost("/process", async (int[] ids, IHttpClientFactory httpClientFactory, 
             {
                 try
                 {
-                    using var request = new HttpRequestMessage(HttpMethod.Get, $"{_apiUniversity}/competition/{id}/applicants");
+                    var command = rating ? "ratings" : "applicants";
+                    using var request = new HttpRequestMessage(HttpMethod.Get,  $"{_apiUniversity}/competition/{id}/{command}");
                     request.Headers.TryAddWithoutValidation("User-Agent", RandomUserAgent.RandomUa.RandomUserAgent);
 
                     var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
