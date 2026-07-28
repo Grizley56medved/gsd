@@ -8,6 +8,8 @@ public class ApplicantsResponse
 {
     [JsonPropertyName("applicants")]
     public List<ApplicantEntity>? Applicants { get; set; }
+    // [JsonPropertyName("updateDate")]
+    // public string UpdateDate { get; set; }
 }
 
 public class ApplicantEntity

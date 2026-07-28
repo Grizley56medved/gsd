@@ -22,7 +22,7 @@ builder.Services.AddHttpClient("DownstreamClient", client => { client.DefaultReq
     {
         PooledConnectionLifetime = TimeSpan.FromMinutes(15),
         PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
-        MaxConnectionsPerServer = 300
+        MaxConnectionsPerServer = 500
     });
 
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -31,6 +31,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 
 var app = builder.Build();
+
+app.MapGet("/endpoints", () => new[] { "http://158.160.64.93:8080", "http://158.160.83.75:8080", "http://158.160.81.54:8080" });
 
 app.MapPost("/process", async (int[] ids, bool rating, IHttpClientFactory httpClientFactory, HttpContext context) =>
 {
@@ -113,9 +115,11 @@ app.MapPost("/process", async (int[] ids, bool rating, IHttpClientFactory httpCl
             var response = responses[i];
             var id = response.Item2;
             var applicants = response.Item1;
+            // var updateDate = response.Item1?.UpdateDate;
             var applicantsCount = applicants?.Applicants?.Count ?? 0;
             
             writer.Write(id);
+            // writer.Write(updateDate ?? "");
             writer.Write(applicantsCount);
 
             for (int index = 0; index < applicantsCount; index++)
@@ -173,6 +177,7 @@ app.Run();
 
 [JsonSerializable(typeof(ApplicantsResponse))]
 [JsonSerializable(typeof(int[]))]
+[JsonSerializable(typeof(string[]))]
 internal partial class AppJsonSerializerContext : JsonSerializerContext
 {
 }
