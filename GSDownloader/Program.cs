@@ -20,9 +20,9 @@ builder.Logging.AddFilter("Program", LogLevel.Information);
 builder.Services.AddHttpClient("DownstreamClient", client => { client.DefaultRequestHeaders.ConnectionClose = false; })
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
     {
-        PooledConnectionLifetime = TimeSpan.FromMinutes(15),
-        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
-        MaxConnectionsPerServer = 500
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(1),
+        MaxConnectionsPerServer = 15000
     });
 
 builder.Services.ConfigureHttpJsonOptions(options =>
