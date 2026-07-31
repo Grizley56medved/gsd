@@ -4,6 +4,14 @@ using Flurl.Http;
 using Flurl.Http.Newtonsoft;
 using Newtonsoft.Json;
 
+public class ApplicantProgramsResponse
+{
+    [JsonPropertyName("applicant")]
+    public int ApplicantId { get; set; }
+    [JsonPropertyName("programs")]
+    public int[] ProgramsId { get; set; }
+}
+
 public class ApplicantsResponse
 {
     [JsonPropertyName("applicants")]

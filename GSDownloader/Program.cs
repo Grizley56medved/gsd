@@ -3,11 +3,16 @@ using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
+Dictionary<int, int[]> applicantPrograms;
+var path = "./cache.json";
+applicantPrograms = JsonSerializer.Deserialize<Dictionary<int, int[]>>(File.ReadAllText(path))!;
 
 string _apiUniversity = "https://www.gosuslugi.ru/api/university-applicant-list/v1/public/2026";
 
@@ -32,7 +37,40 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 var app = builder.Build();
 
+app.MapPost("/appPrograms", async (int[] ids) =>
+{
+    var max = 100000;
+    var resp = new List<ApplicantProgramsResponse>(Math.Min(ids.Length, max));
+    int count = 0;
+    
+    foreach (var id in ids)
+    {
+        if (count > max) break;
+        
+        if (applicantPrograms.TryGetValue(id, out var programs))
+        {
+            resp.Add(new ApplicantProgramsResponse()
+            {
+                ApplicantId = id, ProgramsId = programs
+            });
+        }
+        else
+        {
+            resp.Add(new ApplicantProgramsResponse()
+            {
+                ApplicantId = id,
+                ProgramsId = Array.Empty<int>()
+            });
+        }
+
+        count++;
+    }
+
+    return resp;
+});
+
 app.MapGet("/endpoints", () => new[] { "http://158.160.64.93:8080", "http://158.160.83.75:8080", "http://158.160.81.54:8080" });
+// app.MapGet("/endpoints", () => new[] { "http://localhost:5000"});
 
 app.MapPost("/process", async (int[] ids, bool rating, IHttpClientFactory httpClientFactory, HttpContext context) =>
 {
@@ -175,6 +213,7 @@ app.MapPost("/process", async (int[] ids, bool rating, IHttpClientFactory httpCl
 
 app.Run();
 
+[JsonSerializable(typeof(ApplicantProgramsResponse[]))]
 [JsonSerializable(typeof(ApplicantsResponse))]
 [JsonSerializable(typeof(int[]))]
 [JsonSerializable(typeof(string[]))]
